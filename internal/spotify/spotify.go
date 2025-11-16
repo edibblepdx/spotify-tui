@@ -1,6 +1,8 @@
 package spotify
 
-// SEARCH
+type SearchResult struct {
+	Artists Artists
+}
 
 type Artists struct {
 	// A link to the Web API endpoint returning
