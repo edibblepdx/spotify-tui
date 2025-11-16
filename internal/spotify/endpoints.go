@@ -52,3 +52,26 @@ func SearchArtists(query string, token string) ([]ArtistObject, error) {
 
 	return result.Artists.Items, nil
 }
+
+// Search for tracks on Spotify.
+func SearchTracks(query string, token string) ([]TrackObject, error) {
+	endpoint := "https://api.spotify.com/v1/search?"
+
+	params := url.Values{}
+	params.Set("q", query)
+	params.Set("type", "track")
+	params.Set("limit", "20")
+
+	resp, err := get(endpoint+params.Encode(), token)
+	if err != nil {
+		return nil, fmt.Errorf("search query failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var result SearchResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Tracks.Items, nil
+}

@@ -18,7 +18,18 @@ func searchArtists(query, token string) tea.Cmd {
 	}
 }
 
+func searchTracks(query, token string) tea.Cmd {
+	return func() tea.Msg {
+		items, err := spotify.SearchTracks(query, token)
+		if err != nil {
+			return errMsg{err}
+		}
+		return searchTrackMsg(items)
+	}
+}
+
 type searchArtistMsg []spotify.ArtistObject
+type searchTrackMsg []spotify.TrackObject
 type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
@@ -26,13 +37,14 @@ func (e errMsg) Error() string { return e.err.Error() }
 type Model struct {
 	Query   string
 	Token   string
-	choices []string
+	choices []spotify.TrackObject
 	cursor  int
 	err     error
 }
 
 func (m Model) Init() tea.Cmd {
-	return searchArtists(m.Query, m.Token)
+	//return searchArtists(m.Query, m.Token)
+	return searchTracks(m.Query, m.Token)
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -42,9 +54,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 		return m, tea.Quit
 
-	case searchArtistMsg:
+	/*
+		case searchArtistMsg:
+			for _, item := range msg {
+				m.choices = append(m.choices, item.Name)
+			}
+	*/
+
+	case searchTrackMsg:
 		for _, item := range msg {
-			m.choices = append(m.choices, item.Name)
+			m.choices = append(m.choices, item)
 		}
 
 	case tea.KeyMsg:
@@ -66,6 +85,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.choices)-1 {
 				m.cursor++
 			}
+
+		// The space key plays and pauses
+		case " ":
+			spotify.PlayPause()
+
+		// The enter key selects a song
+		case "enter":
+			spotify.OpenUri(m.choices[m.cursor].Uri)
+
 		}
 	}
 
@@ -83,11 +111,12 @@ func (m Model) View() string {
 			cursor = ">" // cursor!
 		}
 
-		s += fmt.Sprintf("%s %s\n", cursor, choice)
+		s += fmt.Sprintf("%s %s ~ %s\n",
+			cursor, choice.Name, choice.Artists[0].Name)
 	}
 
 	// Footer
-	s += "\nPress q to quit.\n"
+	s += "\nPress q to quit, space to pause, enter to select.\n"
 
 	return s
 }
