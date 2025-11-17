@@ -3,10 +3,15 @@ package tui
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"music/internal/spotify"
 )
+
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
 func searchArtists(query, token string) tea.Cmd {
 	return func() tea.Msg {
@@ -35,16 +40,39 @@ type errMsg struct{ err error }
 func (e errMsg) Error() string { return e.err.Error() }
 
 type Model struct {
-	Query   string
-	Token   string
-	choices []spotify.TrackObject
-	cursor  int
-	err     error
+	search textinput.Model
+	list   list.Model
+	focus  int
+	token  string
+	err    error
+}
+
+const (
+	focusSearch int = iota
+	focusList
+)
+
+func InitialModel(token string) Model {
+	ti := textinput.New()
+	ti.Placeholder = "Search..."
+	ti.Focus()
+	ti.CharLimit = 156
+	ti.Width = 20
+
+	lt := list.New([]list.Item{}, list.NewDefaultDelegate(), 50, 20)
+	lt.DisableQuitKeybindings()
+	lt.Title = "Tracks"
+
+	return Model{
+		search: ti,
+		list:   lt,
+		token:  token,
+	}
 }
 
 func (m Model) Init() tea.Cmd {
-	//return searchArtists(m.Query, m.Token)
-	return searchTracks(m.Query, m.Token)
+	//return searchTracks(m.query, m.token)
+	return nil
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -54,69 +82,86 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.err = msg
 		return m, tea.Quit
 
-	/*
-		case searchArtistMsg:
-			for _, item := range msg {
-				m.choices = append(m.choices, item.Name)
-			}
-	*/
-
 	case searchTrackMsg:
-		for _, item := range msg {
-			m.choices = append(m.choices, item)
+		items := make([]list.Item, len(msg))
+		for i, v := range msg {
+			items[i] = v
 		}
+		m.list.SetItems(items)
+		m.focus = focusList
+		m.search.Blur()
 
 	case tea.KeyMsg:
+		switch m.focus {
 
-		switch msg.String() {
+		case focusSearch:
+			switch msg.Type {
+			// exit the program.
+			case tea.KeyCtrlC:
+				return m, tea.Quit
 
-		// These keys should exit the program.
-		case "ctrl+c", "q":
-			return m, tea.Quit
+			// focus the list.
+			case tea.KeyTab:
+				m.focus = focusList
+				m.search.Blur()
 
-		// The "up" and "k" keys move the cursor up
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
+			// perform search.
+			case tea.KeyEnter:
+				return m, searchTracks(m.search.Value(), m.token)
 			}
 
-		// The "down" and "j" keys move the cursor down
-		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
+		case focusList:
+			switch msg.Type {
+
+			// exit the program.
+			case tea.KeyCtrlC:
+				return m, tea.Quit
+
+			// focus the search.
+			case tea.KeyTab:
+				m.focus = focusSearch
+				m.search.Focus()
+
+			// plays and pause
+			case tea.KeySpace:
+				spotify.PlayPause()
+
+			// selects a song
+			case tea.KeyEnter:
+				if track, ok :=
+					m.list.SelectedItem().(spotify.TrackObject); ok {
+					spotify.OpenUri(track.Uri)
+				}
 			}
-
-		// The space key plays and pauses
-		case " ":
-			spotify.PlayPause()
-
-		// The enter key selects a song
-		case "enter":
-			spotify.OpenUri(m.choices[m.cursor].Uri)
-
 		}
+
+		/*
+			case tea.WindowSizeMsg:
+				h, v := docStyle.GetFrameSize()
+				m.list.SetSize(msg.Width-h, msg.Height-v)
+
+		*/
 	}
 
-	return m, nil
+	var cmd1, cmd2 tea.Cmd
+
+	m.search, cmd1 = m.search.Update(msg)
+	m.list, cmd2 = m.list.Update(msg)
+
+	return m, tea.Batch(cmd1, cmd2)
 }
 
 func (m Model) View() string {
-	// Header
-	s := "Artists\n\n"
-
-	for i, choice := range m.choices {
-
-		cursor := " " // no cursor
-		if m.cursor == i {
-			cursor = ">" // cursor!
-		}
-
-		s += fmt.Sprintf("%s %s ~ %s\n",
-			cursor, choice.Name, choice.Artists[0].Name)
-	}
-
-	// Footer
-	s += "\nPress q to quit, space to pause, enter to select.\n"
-
-	return s
+	return fmt.Sprintf(
+		"%s\n\n%s",
+		docStyle.Render(m.search.View()),
+		docStyle.Render(m.list.View()),
+	)
+	/*
+		return fmt.Sprintf(
+			"%s\n\n%s",
+			m.search.View(),
+			m.list.View(),
+		)
+	*/
 }

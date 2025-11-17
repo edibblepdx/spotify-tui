@@ -70,4 +70,18 @@ type TrackObject struct {
 	Uri string
 }
 
-type SimplifiedAlbumObject struct{}
+// =============================================================================
+// Implement the list.Item interface for TrackObject
+// =============================================================================
+
+func (t TrackObject) FilterValue() string {
+	return t.Artists[0].Name
+}
+
+func (t TrackObject) Title() string {
+	return t.Name
+}
+
+func (t TrackObject) Description() string {
+	return t.Artists[0].Name
+}

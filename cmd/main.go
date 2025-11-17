@@ -33,11 +33,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	p := tea.NewProgram(tui.Model{
-		Query: os.Args[1],
-		Token: token.AccessToken,
-	})
-
+	p := tea.NewProgram(tui.InitialModel(token.AccessToken))
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Uh oh, there was an error: %v\n", err)
 		os.Exit(1)
