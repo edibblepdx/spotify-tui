@@ -1,5 +1,9 @@
 package spotify
 
+import (
+	"music/internal/image"
+)
+
 type SearchResult struct {
 	Artists Search[ArtistObject]
 	Tracks  Search[TrackObject]
@@ -46,6 +50,8 @@ type ArtistObject struct {
 }
 
 type TrackObject struct {
+	// The album which the track appears.
+	Album AlbumObject
 	// The artists who performed on the track.
 	Artists []ArtistObject
 	// The disc number.
@@ -70,6 +76,36 @@ type TrackObject struct {
 	Uri string
 }
 
+type AlbumObject struct {
+	// The type of the album.
+	AlbumType string `json:"album_type"`
+	// The number of tracks in the album.
+	TotalTracks int `json:"total_tracks"`
+	// A link to the Web API endpoint providing full details of the album.
+	Href string
+	// The Spotify ID for the album.
+	Id string
+	// The cover art for the album in various sizes, widest first.
+	Images []ImageObject
+	// The name of the album.
+	Name string
+	// The date the album was first released.
+	ReleaseDate string `json:"release_date"`
+	// The Spotify URI for the album.
+	Uri string
+	// The artists of the album.
+	Artists []ArtistObject
+}
+
+type ImageObject struct {
+	// The source URL of the image.
+	Url string
+	// The image height in pixels.
+	Height int
+	// The image width in pixels.
+	Width int
+}
+
 // =============================================================================
 // Implement the list.Item interface for TrackObject
 // =============================================================================
@@ -79,9 +115,14 @@ func (t TrackObject) FilterValue() string {
 }
 
 func (t TrackObject) Title() string {
-	return t.Name
+	return t.Name // + " : " + t.Id
 }
 
 func (t TrackObject) Description() string {
-	return t.Artists[0].Name
+	img, err := image.GetImage(t.Album.Images[0].Url)
+	if err != nil {
+		panic("foo")
+	}
+	return image.DrawImage(img, 22, 22)
+	//return t.Artists[0].Name
 }
